@@ -215,6 +215,10 @@ def mask_to_rle_pytorch_2(tensor: torch.Tensor) -> List[Dict[str, Any]]:
     return rles
 
 
+def masks_to_rle_pytorch_2(tensors: List[torch.Tensor]) -> List[List[Dict[str, Any]]]:
+    return [mask_to_rle_pytorch_2(tensor) for tensor in tensors]
+
+
 def area_from_rle(rle: Dict[str, Any]) -> int:
     return sum(rle["counts"][1::2])
 

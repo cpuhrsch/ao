@@ -26,6 +26,7 @@ from torchao._models.sam2.utils.amg import (
     is_box_near_crop_edge_torch,
     mask_to_rle_pytorch,
     mask_to_rle_pytorch_2,
+    masks_to_rle_pytorch_2,
     MaskData,
     remove_small_regions,
     rle_to_mask,
@@ -422,18 +423,30 @@ class SAM2AutomaticMaskGenerator:
                 self.predictor.reset_predictor()
             all_all_batch_iterator_data.append(all_batch_iterator_data)
 
-        for all_batch_iterator_data in all_all_batch_iterator_data:
-
-            result_data = None
-            with torch.autograd.profiler.record_function("all mask_to_rle_pytorch_2"):
+        all_data_masks = []
+        with torch.autograd.profiler.record_function("all uncrop_masks"):
+            for all_batch_iterator_data in all_all_batch_iterator_data:
                 for data in all_batch_iterator_data:
                     # Compress to RLE
                     data["masks"] = uncrop_masks(data["masks"], crop_box, orig_h, orig_w)
-                    # TODO: Capture all these masks in a single NT for mask_to_rle_pytorch_2
-                    # or at a minimum create a mask_to_rle_pytorch_2_list and use loops
-                    # to cause a single DtoH sync
-                    data["rles"] = mask_to_rle_pytorch_2(data["masks"])
-                    del data["masks"]
+                    all_data_masks.append(data)
+
+        with torch.autograd.profiler.record_function("all mask_to_rle_pytorch_2"):
+            data_rles = masks_to_rle_pytorch_2([data["masks"] for data in all_data_masks])
+            for i, data in enumerate(all_data_masks):
+                # TODO: Capture all these masks in a single NT for mask_to_rle_pytorch_2
+                # or at a minimum create a mask_to_rle_pytorch_2_list and use loops
+                # to cause a single DtoH sync
+                data["rles"] = data_rles[i]
+                del data["masks"]
+
+        i = 0
+        with torch.autograd.profiler.record_function("all data.cat"):
+            for all_batch_iterator_data in all_all_batch_iterator_data:
+                result_data = None
+                for _ in all_batch_iterator_data:
+                    data = all_data_masks[i]
+                    i += 1
 
                     batch_data = data
                     with torch.autograd.profiler.record_function("data.cat"):
@@ -444,7 +457,7 @@ class SAM2AutomaticMaskGenerator:
                             del batch_data
                 self.predictor.reset_predictor()
 
-            all_crop_data.append(self._process_crop_points_dedup(result_data, crop_box))
+                all_crop_data.append(self._process_crop_points_dedup(result_data, crop_box))
 
         i = 0
         all_data = []
