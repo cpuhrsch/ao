@@ -418,6 +418,7 @@ class SAM2AutomaticMaskGenerator:
                     orig_box = [0, 0, orig_w, orig_h]
                     orig_box_torch = torch.as_tensor(orig_box, dtype=torch.float, device=self.predictor.device)
                     crop_box_torch = torch.as_tensor(crop_box, dtype=torch.float, device=self.predictor.device)
+                    points = torch.as_tensor(points, dtype=torch.float32, device=self.predictor.device)
                     data = self._process_batch_fullgraph(points, im_size, crop_box, crop_box_torch, orig_size, normalize, orig_box_torch)
                     all_batch_iterator_data.append(data)
                 self.predictor.reset_predictor()
@@ -474,7 +475,7 @@ class SAM2AutomaticMaskGenerator:
 
     def _process_batch_fullgraph(
         self,
-        points: np.ndarray,
+        points: torch.Tensor,
         im_size: Tuple[int, ...],
         crop_box: List[int],
         crop_box_torch: torch.Tensor,
@@ -485,9 +486,6 @@ class SAM2AutomaticMaskGenerator:
         orig_h, orig_w = orig_size
 
         # Run model on this batch
-        points = torch.as_tensor(
-            points, dtype=torch.float32, device=self.predictor.device
-        )
         in_points = self.predictor._transforms.transform_coords(
             points, normalize=normalize, orig_hw=im_size
         )
@@ -583,6 +581,7 @@ class SAM2AutomaticMaskGenerator:
         orig_box = [0, 0, orig_w, orig_h]
         orig_box_torch = torch.as_tensor(orig_box, dtype=torch.float, device=self.predictor.device)
         crop_box_torch = torch.as_tensor(crop_box, dtype=torch.float, device=self.predictor.device)
+        points = torch.as_tensor(points, dtype=torch.float32, device=self.predictor.device)
         data = self._process_batch_fullgraph(points, im_size, crop_box, crop_box_torch, orig_size, normalize, orig_box_torch)
 
         with torch.autograd.profiler.record_function("uncrop_masks"):
