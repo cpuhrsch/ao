@@ -214,9 +214,63 @@ def mask_to_rle_pytorch_2(tensor: torch.Tensor) -> List[Dict[str, Any]]:
         rles.extend(_mask_to_rle_pytorch_2_chunk(mask_chunk))
     return rles
 
+def _masks_to_rle_pytorch_2_chunk(tensors: List[torch.Tensor]) -> List[List[Dict[str, Any]]]:
+    """
+    Encodes masks to an uncompressed RLE, in the format expected by
+    pycoco tools.
+    """
+    all_diff = []
+    all_change_indices = []
+    with torch.autograd.profiler.record_function("mask_to_rle_pytorch_2: change indices"):
+        for tensor in tensors:
+            # Put in fortran order and flatten h,w
+            b, h, w = tensor.shape
+            tensor = tensor.permute(0, 2, 1).flatten(1)
+
+            # Compute change indices
+            diff = tensor[:, 1:] ^ tensor[:, :-1]
+            a = torch.tensor([[True]])
+            if diff.is_cuda:
+                a = a.pin_memory().cuda()
+                # a = a.to(diff.device)
+            a = a.expand_as(diff.narrow(1, 0, 1))
+            diff = torch.cat([a, diff, a], dim=1)
+            change_indices = diff.nonzero()
+            all_diff.append(diff)
+            all_change_indices.append(change_indices)
+
+    all_alt_lens = []
+    all_all_btw_idx = []
+    with torch.autograd.profiler.record_function("mask_to_rle_pytorch_2: all_btw_idx"):
+        for (diff, change_indices) in zip(all_diff, all_change_indices):
+            alt_lens = diff.sum(dim=1).tolist()
+
+            all_cur_idx = change_indices[:, 1]
+            all_btw_idx = torch.cat([all_cur_idx[1:], all_cur_idx[:1]]) - all_cur_idx
+            all_btw_idx = all_btw_idx.tolist()
+
+            all_alt_lens.append(alt_lens)
+            all_all_btw_idx.append(all_btw_idx)
+
+    all_out = []
+    with torch.autograd.profiler.record_function("mask_to_rle_pytorch_2: Encode run length"):
+        for (alt_lens, all_btw_idx) in zip(all_alt_lens, all_all_btw_idx):
+            # Encode run length
+            out = []
+            counts_init = (tensor[:, 0] == 0).tolist()
+            offset = 0
+            for i, ci in zip(range(b), counts_init):
+                btw_idxs = all_btw_idx[offset:offset + alt_lens[i]][:-1]
+                offset += alt_lens[i]
+                counts = [] if ci else [0]
+                counts.extend(btw_idxs)
+                out.append({"size": [h, w], "counts": counts})
+
+            all_out.append(out)
+    return all_out
 
 def masks_to_rle_pytorch_2(tensors: List[torch.Tensor]) -> List[List[Dict[str, Any]]]:
-    return [mask_to_rle_pytorch_2(tensor) for tensor in tensors]
+    return _masks_to_rle_pytorch_2_chunk(tensors)
 
 
 def area_from_rle(rle: Dict[str, Any]) -> int:
