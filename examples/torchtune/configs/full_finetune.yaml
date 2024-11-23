@@ -39,8 +39,7 @@ checkpointer:
   _component_: torchtune.training.FullModelHFCheckpointer
   checkpoint_dir: /data/home/cpuhrsch/checkpoints/Llama-3.2-1B-Instruct
   checkpoint_files: [
-    pytorch_model-00001-of-00002.bin,
-    pytorch_model-00002-of-00002.bin
+    model.safetensors
   ]
   recipe_checkpoint: null
   output_dir: /data/home/cpuhrsch/checkpoints/Llama-3.2-1B-Instruct
