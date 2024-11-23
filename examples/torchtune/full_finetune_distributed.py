@@ -434,7 +434,8 @@ class FullFinetuneRecipeDistributed(FTRecipeInterface):
             )
             init_start = time.perf_counter()
 
-        with training.set_default_dtype(self._dtype), torch.device("meta"):
+        # with training.set_default_dtype(self._dtype), torch.device("meta"):
+        with training.set_default_dtype(self._dtype):
             model = config.instantiate(cfg_model)
 
         if True:
@@ -450,6 +451,7 @@ class FullFinetuneRecipeDistributed(FTRecipeInterface):
             superblock_args.bsr = 64
             superblock_args.skip_attention_proj = True
             simulate_sparsity(model, superblock_args)
+
 
         if self._compile:
             training.compile_model(model, verbose=self._is_rank_zero)
@@ -500,7 +502,8 @@ class FullFinetuneRecipeDistributed(FTRecipeInterface):
             model_state_dict,
             self._device,
             self._is_rank_zero,
-            strict=True,
+            # strict=True,
+            strict=False,
             cpu_offload=fsdp_cpu_offload,
         )
 
@@ -518,6 +521,7 @@ class FullFinetuneRecipeDistributed(FTRecipeInterface):
             )
             memory_stats = training.get_memory_stats(device=self._device)
             training.log_memory_stats(memory_stats)
+
 
         # synchronize before training begins
         torch.distributed.barrier()
