@@ -47,15 +47,15 @@ checkpointer:
 resume_from_checkpoint: False
 
 # Fine-tuning arguments
-batch_size: 1
-epochs: 1
+batch_size: 32
+epochs: 100
 optimizer:
   _component_: torch.optim.AdamW
   fused: True
   lr: 2e-5
 loss:
   _component_: torchtune.modules.loss.CEWithChunkedOutputLoss
-max_steps_per_epoch: 10
+max_steps_per_epoch: null
 gradient_accumulation_steps: 1  # Use to increase virtual batch size
 compile: False  # pytorch compile, set to true for better perf/memory
 optimizer_in_bwd: False  # True saves memory. Requires gradient_accumulation_steps=1
