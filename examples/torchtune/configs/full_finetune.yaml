@@ -47,12 +47,12 @@ checkpointer:
 resume_from_checkpoint: False
 
 # Fine-tuning arguments
-batch_size: 16
+batch_size: 1
 epochs: 100
 optimizer:
   _component_: torch.optim.AdamW
   fused: True
-  lr: 1e-5
+  lr: 2e-5
 loss:
   _component_: torchtune.modules.loss.CEWithChunkedOutputLoss
 max_steps_per_epoch: null
