@@ -650,6 +650,8 @@ class FullFinetuneRecipeDistributed(FTRecipeInterface):
         different checkpoint files. To correctly resume training from an intermediate checkpoint,
         the model weights and recipe state must be provided.
         """
+
+
         # final dict passed onto the checkpointer
         checkpoint_dict = {}
 
@@ -717,11 +719,12 @@ class FullFinetuneRecipeDistributed(FTRecipeInterface):
                     }
                 )
 
-            self._checkpointer.save_checkpoint(
-                checkpoint_dict,
-                epoch=epoch,
-                intermediate_checkpoint=intermediate_checkpoint,
-            )
+            torch.save(checkpoint_dict, f"/data/home/cpuhrsch/checkpoints/alpaca-llama3-finetune/output_epoch_{epoch}.pt")
+            # self._checkpointer.save_checkpoint(
+            #     checkpoint_dict,
+            #     epoch=epoch,
+            #     intermediate_checkpoint=intermediate_checkpoint,
+            # )
             log.info(f"Saving checkpoint took {time.perf_counter() - start:.2f} secs")
 
         torch.distributed.barrier()
