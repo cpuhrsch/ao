@@ -187,143 +187,7 @@ def main(
 
         # AO version of baseline for sanity check
         run_with_compare(ttype, f"{ttype}_ao", ppb_kwarg | meta_kwarg)
-
-        ppb = {"amg": 1024, "sps": 1, "mps": None}[ttype]
-        ppb_kwarg = {} if ppb is None else {"points-per-batch": ppb}
-
-        batch_size_kwarg = {"batch-size": batch_size}
-
-        def rwc_curry(output_path: Path, kwargs, environ):
-            return run_with_compare(
-                ttype,
-                f"{ttype}_ao_ppb_{ppb}_" + output_path,
-                kwargs | ppb_kwarg | meta_kwarg | batch_size_kwarg,
-                environ=environ,
-            )
-
-        def r_curry(output_path: Path, kwargs, environ):
-            return run(
-                ttype,
-                f"{ttype}_ao_ppb_{ppb}_" + output_path,
-                kwargs | ppb_kwarg | meta_kwarg | batch_size_kwarg,
-                environ=environ,
-            )
-
-        rwc_curry("basic", {}, None)
-
-        environ = {
-            "TORCHINDUCTOR_CACHE_DIR": str(
-                output_base_path / f"{ttype}_inductor_cache_dir"
-            )
-        }
-        # fast
-        r_curry("fast_cold", {"fast": None}, environ)
-        rwc_curry("fast", {"fast": None}, environ)
-        export_model_path = output_base_path / "exported_models" / f"{ttype}_ao_fast"
-        cond_mkdir(export_model_path, overwrite, resume, dry)
-        r_curry(
-            "save_export",
-            {"num-images": 0, "export-model": str(export_model_path)},
-            environ,
-        )
-
-        environ_load = {
-            "TORCHINDUCTOR_CACHE_DIR": str(
-                output_base_path / f"{ttype}_load_export_inductor_cache_dir"
-            )
-        }
-        load_export_kwarg = {"load-exported-model": str(export_model_path)}
-        rwc_curry("load_export_cold", load_export_kwarg, environ_load)
-        rwc_curry("load_export", load_export_kwarg, environ_load)
-        rwc_curry(
-            "load_export_gpu_preproc",
-            load_export_kwarg | {"gpu-preproc": None},
-            environ_load,
-        )
-
-        environ_fast_load = {
-            "TORCHINDUCTOR_CACHE_DIR": str(
-                output_base_path / f"{ttype}_fast_export_inductor_cache_dir"
-            )
-        }
-        fast_load_kwarg = {"fast": None, "load-exported-model": str(export_model_path)}
-        rwc_curry("fast_export_cold", fast_load_kwarg, environ_fast_load)
-        rwc_curry("fast_export", fast_load_kwarg, environ_fast_load)
-        rwc_curry(
-            "fast_export_gpu_preproc",
-            fast_load_kwarg | {"gpu-preproc": None},
-            environ_fast_load,
-        )
-
-        environ_furious = {
-            "TORCHINDUCTOR_CACHE_DIR": str(
-                output_base_path / f"{ttype}_furious_inductor_cache_dir"
-            )
-        }
-        # fast and furious
-        fast_furious_kwarg = {"fast": None, "furious": None}
-        rwc_curry("fast_furious_cold", fast_furious_kwarg, environ_furious)
-        rwc_curry("fast_furious", fast_furious_kwarg, environ_furious)
-
-        export_model_path = (
-            output_base_path / "exported_models" / f"{ttype}_ao_fast_furious"
-        )
-        cond_mkdir(export_model_path, overwrite, resume, dry)
-        r_curry(
-            "save_export_furious",
-            {"num-images": 0, "furious": None, "export-model": str(export_model_path)},
-            environ_furious,
-        )
-
-        environ_load = {
-            "TORCHINDUCTOR_CACHE_DIR": str(
-                output_base_path / f"{ttype}_load_export_furious_inductor_cache_dir"
-            )
-        }
-        furious_load_kwarg = {
-            "furious": None,
-            "load-exported-model": str(export_model_path),
-        }
-        rwc_curry("load_export_furious_cold", furious_load_kwarg, environ_load)
-        rwc_curry("load_export_furious", furious_load_kwarg, environ_load)
-        rwc_curry(
-            "load_export_furious_gpu_preproc",
-            furious_load_kwarg | {"gpu-preproc": None},
-            environ_load,
-        )
-
-        environ_fast_load = {
-            "TORCHINDUCTOR_CACHE_DIR": str(
-                output_base_path / f"{ttype}_fast_export_furious_inductor_cache_dir"
-            )
-        }
-        fast_furious_load_kwarg = furious_load_kwarg | {"fast": None}
-        rwc_curry(
-            "fast_export_furious_cold", fast_furious_load_kwarg, environ_fast_load
-        )
-        rwc_curry("fast_export_furious", fast_furious_load_kwarg, environ_fast_load)
-        rwc_curry(
-            "fast_export_furious_recompiles",
-            fast_furious_load_kwarg | {"allow-recompiles": None},
-            environ_fast_load,
-        )
-        rwc_curry(
-            "fast_export_furious_gpu_preproc",
-            fast_furious_load_kwarg
-            | {
-                "gpu-preproc": None,
-            },
-            environ_fast_load,
-        )
-        rwc_curry(
-            "fast_export_furious_gpu_preproc_recompiles",
-            fast_furious_load_kwarg | {"gpu-preproc": None, "allow-recompiles": None},
-            environ_fast_load,
-        )
-
-        # TODO: Add a job that uses torchvision for I/O
-
-        # Annotations for baseline folder
+        # Create annotations for baseline folder
         run_annotate(
             image_paths,
             f"baseline_{ttype}",
@@ -331,6 +195,75 @@ def main(
             overwrite,
             dry,
         )
+
+        ppb = {"amg": 1024, "sps": 1, "mps": None}[ttype]
+        ppb_kwarg = {} if ppb is None else {"points-per-batch": ppb}
+
+        for batch_size in [1, 8, 16]:
+            batch_size_kwarg = {"batch-size": batch_size}
+
+            def rwc_curry(output_path: Path, kwargs, environ, compare=True):
+                r = run_with_compare if compare else run
+                return r(
+                    ttype,
+                    (f"{ttype}_ao_ppb_{ppb}_batch_size_{batch_size}_" + output_path),
+                    kwargs | ppb_kwarg | meta_kwarg | batch_size_kwarg,
+                    environ=environ,
+                )
+
+            def gen_export_model_kwarg(output_path: str):
+                export_model_path = output_base_path / "exported_models" / output_path
+                cond_mkdir(export_model_path, overwrite, resume, dry)
+                export_kwarg = {"export-model": str(export_model_path)}
+                load_kwarg = {"load-exported-model": export_kwarg["export-model"]}
+                return export_kwarg, load_kwarg
+
+            def gen_cold_environ_kwarg(output_path: str):
+                return {
+                    "TORCHINDUCTOR_CACHE_DIR": str(
+                        output_base_path / output_path,
+                    )
+                }
+
+            rwc_curry("basic", {}, None)
+
+            fast_kwarg = {"fast": None}
+            gpu_preproc_kwarg = {"gpu-preproc": None}
+            allow_recompiles_kwarg = {"allow-recompiles": None}
+            for use_furious in [False, True]:
+                maybe_furious_kwarg = ({"furious": None} if use_furious else {})
+                maybe_furious_name = "_furious" if use_furious else ""
+
+                # Env 1
+                # Run compiled (fast mode) cold and warm
+                environ = gen_cold_environ_kwarg(f"{ttype}{maybe_furious_name}_inductor_cache_dir")
+                fast_kwarg = maybe_furious_kwarg | fast_kwarg
+                rwc_curry(f"fast{maybe_furious_name}_cold", fast_kwarg, environ)
+                rwc_curry(f"fast{maybe_furious_name}", fast_kwarg, environ)
+
+                # Export export-able piece
+                export_kwarg, load_kwarg = gen_export_model_kwarg(f"{ttype}_ao_fast{maybe_furious_name}")
+                rwc_curry("save_export{maybe_furious_name}", {"num-images": 0} | maybe_furious_kwarg | export_kwarg, environ, compare=False)
+
+                # Env 2
+                # Load back export-able piece and run cold and warm
+                environ = gen_cold_environ_kwarg(f"{ttype}_load_export{maybe_furious_name}_inductor_cache_dir")
+                load_kwarg = maybe_furious_kwarg | load_kwarg
+                prefix = f"load_export{maybe_furious_name}"
+                rwc_curry("{prefix}_cold", load_kwarg, environ)
+                rwc_curry("{prefix}", load_kwarg, environ)
+                rwc_curry("{prefix}_gpu_preproc", load_kwarg | {"gpu-preproc": None}, environ)
+
+                # Env 3
+                # Load back export-able piece, compile the rest (fast mode) and run cold and warm
+                environ = gen_cold_environ_kwarg(f"{ttype}_fast_export{maybe_furious_name}_inductor_cache_dir")
+                fast_load_kwarg = load_kwarg | {"fast": None}
+                prefix = f"fast_export{maybe_furious_name}"
+                rwc_curry(F"{prefix}_cold", fast_load_kwarg, environ)
+                rwc_curry(F"{prefix}", fast_load_kwarg, environ)
+                rwc_curry(F"{prefix}_recompiles", fast_load_kwarg | allow_recompiles_kwarg, environ)
+                rwc_curry(F"{prefix}_gpu_preproc", fast_load_kwarg | gpu_preproc_kwarg, environ)
+                rwc_curry(F"{prefix}_gpu_preproc_recompiles", fast_load_kwarg | gpu_preproc_kwarg | allow_recompiles_kwarg, environ)
 
     all_keys = set().union(*(d.keys() for d in results))
     normalized_data = [{key: d.get(key, None) for key in all_keys} for d in results]
