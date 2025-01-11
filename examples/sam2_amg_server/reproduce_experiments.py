@@ -248,27 +248,27 @@ def main(
 
                 # Export export-able piece
                 export_kwarg, load_kwarg = gen_export_model_kwarg(f"{ttype}_ao_fast{maybe_furious_name}")
-                rwc_curry("save_export{maybe_furious_name}", {"num-images": 0} | maybe_furious_kwarg | export_kwarg, environ, compare=False)
+                rwc_curry(f"save_export{maybe_furious_name}", {"num-images": 0} | maybe_furious_kwarg | export_kwarg, environ, compare=False)
 
                 # Env 2
                 # Load back export-able piece and run cold and warm
                 environ = gen_cold_environ_kwarg(f"{ttype}_load_export{maybe_furious_name}_inductor_cache_dir")
                 load_kwarg = maybe_furious_kwarg | load_kwarg
                 prefix = f"load_export{maybe_furious_name}"
-                rwc_curry("{prefix}_cold", load_kwarg, environ)
-                rwc_curry("{prefix}", load_kwarg, environ)
-                rwc_curry("{prefix}_gpu_preproc", load_kwarg | {"gpu-preproc": None}, environ)
+                rwc_curry(f"{prefix}_cold", load_kwarg, environ)
+                rwc_curry(f"{prefix}", load_kwarg, environ)
+                rwc_curry(f"{prefix}_gpu_preproc", load_kwarg | {"gpu-preproc": None}, environ)
 
                 # Env 3
                 # Load back export-able piece, compile the rest (fast mode) and run cold and warm
                 environ = gen_cold_environ_kwarg(f"{ttype}_fast_export{maybe_furious_name}_inductor_cache_dir")
                 fast_load_kwarg = load_kwarg | {"fast": None}
                 prefix = f"fast_export{maybe_furious_name}"
-                rwc_curry(F"{prefix}_cold", fast_load_kwarg, environ)
-                rwc_curry(F"{prefix}", fast_load_kwarg, environ)
-                rwc_curry(F"{prefix}_recompiles", fast_load_kwarg | allow_recompiles_kwarg, environ)
-                rwc_curry(F"{prefix}_gpu_preproc", fast_load_kwarg | gpu_preproc_kwarg, environ)
-                rwc_curry(F"{prefix}_gpu_preproc_recompiles", fast_load_kwarg | gpu_preproc_kwarg | allow_recompiles_kwarg, environ)
+                rwc_curry(f"{prefix}_cold", fast_load_kwarg, environ)
+                rwc_curry(f"{prefix}", fast_load_kwarg, environ)
+                rwc_curry(f"{prefix}_recompiles", fast_load_kwarg | allow_recompiles_kwarg, environ)
+                rwc_curry(f"{prefix}_gpu_preproc", fast_load_kwarg | gpu_preproc_kwarg, environ)
+                rwc_curry(f"{prefix}_gpu_preproc_recompiles", fast_load_kwarg | gpu_preproc_kwarg | allow_recompiles_kwarg, environ)
 
     all_keys = set().union(*(d.keys() for d in results))
     normalized_data = [{key: d.get(key, None) for key in all_keys} for d in results]
