@@ -217,6 +217,7 @@ def main(
 
             def gen_export_model_kwarg(output_path: str):
                 export_model_path = output_base_path / "exported_models" / output_path
+                export_model_path = Path(str(export_model_path) + f"_batch_size_{batch_size}")
                 cond_mkdir(export_model_path, overwrite, resume, dry)
                 export_kwarg = {"export-model": str(export_model_path)}
                 load_kwarg = {"load-exported-model": export_kwarg["export-model"]}
@@ -226,7 +227,7 @@ def main(
                 return {
                     "TORCHINDUCTOR_CACHE_DIR": str(
                         output_base_path / output_path,
-                    )
+                    ) + f"_batch_size_{batch_size}"
                 }
 
             rwc_curry("basic", {}, None)
