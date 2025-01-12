@@ -450,6 +450,7 @@ def main(
     quiet=False,
     gpu_preproc=False,
     batch_size=1,
+    autoquant="",
 ):
     if batch_size <= 0:
         raise ValueError("Expected --batch_size to be at least 1 but got {batch_size}")
@@ -567,6 +568,11 @@ def main(
             loaded_exported_model=(load_exported_model != ""),
             allow_recompiles=allow_recompiles,
         )
+    if autoquant != "":
+        assert fast
+        from server import set_autoquant
+        assert not furious, "autoquant can't be used together with furious"
+        set_autoquant(mask_generator, autoquant, min_sqnr=None)
 
     # TODO: Write out an optional unit test based on dog.jpg and rerun
     latencies = []
