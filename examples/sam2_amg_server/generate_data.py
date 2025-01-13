@@ -569,7 +569,6 @@ def main(
             allow_recompiles=allow_recompiles,
         )
     if autoquant != "":
-        assert fast
         from server import set_autoquant
         assert not furious, "autoquant can't be used together with furious"
         set_autoquant(mask_generator, autoquant, min_sqnr=None)
