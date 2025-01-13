@@ -203,7 +203,8 @@ def main(
         ppb = {"amg": 1024, "sps": 1, "mps": None}[ttype]
         ppb_kwarg = {} if ppb is None else {"points-per-batch": ppb}
 
-        for batch_size in [1, 8, 16]:
+        # for batch_size in [1, 8, 16]:
+        for batch_size in [1]:  # , 8, 16]:
             batch_size_kwarg = {"batch-size": batch_size}
 
             def rwc_curry(output_path: Path, kwargs, environ, compare=True):
@@ -235,9 +236,18 @@ def main(
             fast_kwarg = {"fast": None}
             gpu_preproc_kwarg = {"gpu-preproc": None}
             allow_recompiles_kwarg = {"allow-recompiles": None}
-            for use_furious in [False, True]:
-                maybe_furious_kwarg = ({"furious": None} if use_furious else {})
-                maybe_furious_name = "_furious" if use_furious else ""
+            # for use_furious in [False, True]:
+            for use_furious in [{"autoquant": "autoquant"},
+                                {"autoquant": "autoquant-fp"},
+                                {"autoquant": "autoquant-all"},
+                                {"furious": None},
+                                {}]:
+                maybe_furious_kwarg = use_furious
+                maybe_furious_name = ""
+                if "furious" in use_furious:
+                    maybe_furious_name = "_furious"
+                else:
+                    maybe_furious_name = f"_{'_'.join(use_furious.values())}"
 
                 # Env 1
                 # Run compiled (fast mode) cold and warm
