@@ -233,7 +233,6 @@ def main(
 
             rwc_curry("basic", {}, None)
 
-            fast_kwarg = {"fast": None}
             gpu_preproc_kwarg = {"gpu-preproc": None}
             allow_recompiles_kwarg = {"allow-recompiles": None}
             # for use_furious in [False, True]:
@@ -246,12 +245,13 @@ def main(
                 maybe_furious_name = ""
                 if "furious" in use_furious:
                     maybe_furious_name = "_furious"
-                else:
+                elif len(use_furious) > 0:
                     maybe_furious_name = f"_{'_'.join(use_furious.values())}"
 
                 # Env 1
                 # Run compiled (fast mode) cold and warm
                 environ = gen_cold_environ_kwarg(f"{ttype}{maybe_furious_name}_inductor_cache_dir")
+                fast_kwarg = {"fast": None}
                 fast_kwarg = maybe_furious_kwarg | fast_kwarg
                 rwc_curry(f"fast{maybe_furious_name}_cold", fast_kwarg, environ)
                 rwc_curry(f"fast{maybe_furious_name}", fast_kwarg, environ)
