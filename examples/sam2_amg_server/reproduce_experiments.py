@@ -47,7 +47,7 @@ def run_script_with_args(positional_args, keyword_args, dry=False, environ=None)
         print("Errors:\n", result.stderr)
         return result.stdout, result.stderr
     except subprocess.CalledProcessError as e:
-        print(f"An error occurred: {e}")
+        print(f"An error occurred: {e.stderr}")
         return None, e.stderr
 
 
