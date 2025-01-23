@@ -1,5 +1,6 @@
 from functools import partial
 from typing import Any, Callable, Dict, List, Optional, Tuple
+from torch.autograd.profiler import record_function
 
 import torch
 from torch.sparse._triton_ops import broadcast_batch_dims, bsr_dense_addmm, bsr_dense_mm
@@ -127,17 +128,18 @@ def blocksparse_addmm(
     weight_bsr = torch.sparse_bsr_tensor(crow_indices, col_indices, values, size=(M, K))
     N_padded = x_padded.shape[1]
     out = x_padded.new_empty((M, N_padded))
-    bsr_dense_addmm(
-        out,
-        weight_bsr,
-        # x,
-        x_padded,
-        alpha=1,
-        beta=0,
-        out=out,
-        # left_alpha=left_alpha,
-        # right_alpha=right_alpha,
-    )
+    with record_function("bsr_dense_addmm"):
+        bsr_dense_addmm(
+            out,
+            weight_bsr,
+            # x,
+            x_padded,
+            alpha=1,
+            beta=0,
+            out=out,
+            # left_alpha=left_alpha,
+            # right_alpha=right_alpha,
+        )
     return out
 
 
@@ -381,15 +383,16 @@ def block_sparse_linear(func, types, args, kwargs):
     # else:
     N_padded = max(16, next_power_of_two(N))
     x_padded = torch.nn.functional.pad(x, (0, N_padded - N), 'constant', 0)
-    out = torch.ops.blocksparse.addmm(
-        x_padded,
-        w.crow_indices(),
-        w.col_indices(),
-        w.values(),
-        M,
-        K,
-        None,
-    )
+    with record_function("torch.ops.blocksparse.addmm"):
+        out = torch.ops.blocksparse.addmm(
+            x_padded,
+            w.crow_indices(),
+            w.col_indices(),
+            w.values(),
+            M,
+            K,
+            None,
+        )
     # import pdb; pdb.set_trace()
     # return out.view(x_orig.size(0), -1, M)
     out_orig = out[:, :x.size(-1)].t().reshape(x_orig.shape[:-1] + (M,))

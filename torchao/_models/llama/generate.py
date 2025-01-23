@@ -8,6 +8,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Tuple
+from torch.autograd.profiler import record_function
 
 import torch
 import torch._dynamo.config
@@ -116,6 +117,7 @@ def decode_one_token(
     return sample(logits, **sampling_kwargs)
 
 
+@record_function("decode_n_tokens")
 def decode_n_tokens(
     model: Transformer,
     cur_token: torch.Tensor,
@@ -127,9 +129,10 @@ def decode_n_tokens(
     new_tokens, new_probs = [], []
     for i in range(num_new_tokens):
         with torch.nn.attention.sdpa_kernel(torch.nn.attention.SDPBackend.MATH):
-            next_token, next_prob = decode_one_token(
-                model, cur_token, input_pos, **sampling_kwargs
-            )
+            with record_function("decode_one_token"):
+                next_token, next_prob = decode_one_token(
+                    model, cur_token, input_pos, **sampling_kwargs
+                )
             next_token, next_prob = next_token.clone(), next_prob.clone()
             input_pos += 1
             # in some instances not having this causes weird issues with the stored tokens when you run the next decode_one_token step
@@ -932,7 +935,7 @@ def main(
             print(f"Compilation time: {time.perf_counter() - t0:.2f} seconds")
             continue
         if hasattr(prof, "export_chrome_trace"):
-            prof.export_chrome_trace(f"{profile}.json")
+            prof.export_chrome_trace(f"{profile}.json.gz")
         device_sync(device=device)  # MKG
         t = time.perf_counter() - t0
 
