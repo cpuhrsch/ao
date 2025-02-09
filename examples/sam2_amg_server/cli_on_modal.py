@@ -72,9 +72,11 @@ class Model:
     task_type: str = modal.parameter(default="amg")
     baseline: int = modal.parameter(default=0)
 
-    @modal.build()
     @modal.enter()
-    def build(self):
+    def load(self):
+        """
+        Load components and functions into CPU memory.
+        """
         import os
 
         import numpy as np
@@ -102,7 +104,7 @@ class Model:
             show_anns,
         )
 
-        device = "cuda"
+        device = "cpu"
         checkpoint_path = Path(TARGET) / Path("checkpoints")
         sam2_checkpoint, model_cfg = model_type_to_paths(checkpoint_path, "large")
         sam2 = build_sam2(
@@ -113,24 +115,13 @@ class Model:
             points_per_batch = 64 if self.baseline else 1024
         if self.task_type == "sps":
             points_per_batch = 1
+        self.points_per_batch = points_per_batch
         mask_generator = SAM2AutomaticMaskGenerator(
             sam2, points_per_batch=points_per_batch, output_mode="uncompressed_rle"
         )
         from compile_export_utils import load_exported_model
+        self.load_exported_model = load_exported_model
 
-        export_model_path = Path(TARGET) / Path("exported_models")
-        export_model_path = (
-            export_model_path / Path("sam2") / Path(f"sam2_{self.task_type}")
-        )
-        if not self.baseline:
-            load_exported_model(
-                mask_generator,
-                export_model_path,
-                self.task_type,
-                furious=True,
-                batch_size=1,
-                points_per_batch=points_per_batch,
-            )
         self.mask_generator = mask_generator
         from torchvision import io as tio
         from torchvision.transforms.v2 import functional as tio_F
@@ -167,6 +158,26 @@ class Model:
         else:
             from generate_data import gen_masks_ao as gen_masks
         self.gen_masks = gen_masks
+
+    @modal.enter()
+    def setup(self):
+        """
+        Move components onto GPU as needed.
+        """
+        export_model_path = Path(TARGET) / Path("exported_models")
+        export_model_path = (
+            export_model_path / Path("sam2") / Path(f"sam2_{self.task_type}")
+        )
+        self.mask_generator.to("cuda")
+        if not self.baseline:
+            self.load_exported_model(
+                self.mask_generator,
+                export_model_path,
+                self.task_type,
+                furious=True,
+                batch_size=1,
+                points_per_batch=self.points_per_batch,
+            )
 
     def decode_img_bytes(self, img_bytes_tensor, baseline=False):
         import torch
